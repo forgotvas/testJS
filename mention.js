@@ -1,3 +1,4 @@
+console.log("Mention did load");
 var _to_ascii = {
 	'188': '44',
 	'109': '45',
