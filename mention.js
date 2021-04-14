@@ -1,4 +1,3 @@
-console.log("Mention did load");
 var _to_ascii = {
 	'188': '44',
 	'109': '45',
@@ -94,7 +93,10 @@ function getDelimiter(e) {
             source: [],
             delay: 500,
             queryBy: 'name',
-            items: 10
+            items: 10,
+            id: 'id',
+            baseUrl: '',
+            courseId: ''
         }, options);
 
         this.options.insertFrom = this.options.insertFrom || this.options.queryBy;
@@ -120,9 +122,18 @@ function getDelimiter(e) {
 
         renderInput: function () {
             var rawHtml =  '<span id="autocomplete">' +
-                                '<span id="autocomplete-delimiter"></span>' +
+                                '<span id="autocomplete-delimiter">' + this.options.delimiter + '</span>' +
                                 '<span id="autocomplete-searchtext"><span class="dummy">\uFEFF</span></span>' +
                             '</span>';
+
+            var editorRange = this.editor.selection.getRng();
+            var node = editorRange.commonAncestorContainer;
+
+            var range = document.createRange();
+            range.selectNodeContents(node);
+            range.setStart(node, editorRange.endOffset - 1);
+            range.setEnd(node, editorRange.endOffset);
+            range.deleteContents();
 
             this.editor.execCommand('mceInsertContent', false, rawHtml);
             this.editor.focus();
@@ -242,6 +253,13 @@ function getDelimiter(e) {
 
         lookup: function () {
             this.query = $.trim($(this.editor.getBody()).find('#autocomplete-searchtext').text()).replace('\ufeff', '');
+            if (this.query.length == 0) {
+                var delimiter = $.trim($(this.editor.getBody()).find('#autocomplete-delimiter').text()).replace('\ufeff', '');
+                if (delimiter.length == 0) {
+                    this.cleanUp(true);
+                    return;
+                }
+            }
 
             if (this.$dropdown === undefined) {
                 this.show();
@@ -374,7 +392,11 @@ function getDelimiter(e) {
         },
 
         insert: function (item) {
-            return '<span>' + item[this.options.insertFrom] + '</span>&nbsp;';
+            return '<p><span class="mentions1" data-savedValue="' + this.options.delimiter + item[this.options.insertFrom] +
+            '" contenteditable="true"><a href="undefined/user/view.php?id=81&amp;course=undefined" target="_blank">' + this.options.delimiter + item[this.options.insertFrom] + '</a></span>&nbsp;</p>'
+
+            /*return '<span class="mentions" style="color: #0000EE;" id="' +
+                item[this.options.id] + '">' + this.options.delimiter + item[this.options.insertFrom] + '</span>&nbsp;';*/
         },
 
         cleanUp: function (rollback) {
@@ -394,7 +416,7 @@ function getDelimiter(e) {
                     return;
                 }
 
-                var replacement = $('<p>' + text + '</p>')[0].firstChild,
+                var replacement = $('<p>'+ this.options.delimiter + text + '</p>')[0].firstChild,
                     focus = $(this.editor.selection.getNode()).offset().top === ($selection.offset().top + (($selection.outerHeight() - $selection.height()) / 2));
 
                 this.editor.dom.replace(replacement, $selection[0]);
@@ -440,6 +462,24 @@ function getDelimiter(e) {
             autoCompleteData.delimiter = (autoCompleteData.delimiter !== undefined) ? !$.isArray(autoCompleteData.delimiter) ? [autoCompleteData.delimiter] : autoCompleteData.delimiter : ['@'];
 
             ed.on('input', function (e) {
+                var elements = e.target.getElementsByClassName("mentions1");
+                for (var i = 0; i < elements.length; i ++) {
+                    var element = elements[i];
+
+                    if (element.getAttributeNode("data-savedValue").value.length > element.innerText.length) {
+                        element.parentNode.parentNode.removeChild(element.parentNode);
+
+                    } else if (element.getAttributeNode("data-savedValue").value.length < element.innerText.length) {
+                        element.firstChild.innerHTML = element.getAttributeNode("data-savedValue").value;
+                        var range = ed.contentDocument.createRange();
+                        var sel = ed.contentWindow.getSelection();
+                        range.setStartAfter(element);
+                        range.collapse(true);
+                        sel.removeAllRanges();
+                        sel.addRange(range);
+                    }
+                }
+
                 var delimiterIndex = $.inArray(e.data, autoCompleteData.delimiter);
                 if (delimiterIndex > -1) {
                     if (autoComplete === undefined || (autoComplete.hasFocus !== undefined && !autoComplete.hasFocus)) {
@@ -451,7 +491,6 @@ function getDelimiter(e) {
                     }
                 }
             });
-
         },
 
         getInfo: function () {
